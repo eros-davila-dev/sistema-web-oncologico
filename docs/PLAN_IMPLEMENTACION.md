@@ -134,13 +134,15 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Verificación**: 115 tests de backend (incluye el ciclo completo de recordatorios contra PostgreSQL con reloj controlado), build y tests del frontend, y prueba de humo HTTP que simula a n8n (vinculación, recordatorio, botón, llamadas, chatbot, `/persona`, `/stop`). Corregido además un bug previo: el listado de citas y de tratamientos fallaba en PostgreSQL con algunos filtros nulos.
 
-### Fase 5 — Frontend profesional: portal e intranet (≈ 2 semanas)
-- [ ] Separar el workspace en `projects/portal`, `projects/intranet`, `projects/shared` sin cambiar comportamiento.
-- [ ] Portal: inicio público, preguntas frecuentes, mis citas, vincular Telegram, chatbot con valoración; accesible y mobile-first.
-- [ ] Intranet: dashboard de indicadores rediseñado (Pretest / Postest / Comparativo, n de cada indicador, "Sin datos" en vez de 0), agenda del día, bandeja de consultas, módulo de estudio.
-- [ ] Cliente API generado desde OpenAPI (opcional, evita desalineación de modelos).
+### Fase 5 — Frontend profesional: portal e intranet (≈ 2 semanas) — ✅ completada
+- [x] Dos aplicaciones Angular (`portal` en 4200, `intranet` en 4300) en el mismo workspace. **Decisión**: comparten `src/app` (core, shared, features) y cada una tiene su punto de entrada (`main.portal.ts` / `main.intranet.ts`), sus rutas (`portal/portal.routes.ts`, `intranet/intranet.routes.ts`) y el token `AUDIENCIA`. Se descartó partir en `projects/*`: duplicaba configuración sin beneficio para un equipo de dos, y el bundle de cada app ya contiene solo sus pantallas (verificado).
+- [x] Portal: inicio público, preguntas frecuentes, login, mis citas, mi perfil con vinculación de Telegram (QR) y widget del chatbot con valoración; mobile-first.
+- [x] Intranet: dashboard de indicadores (GLOBAL + comparativo pretest/postest con el n de cada indicador y «Sin datos» en vez de 0), agenda del día, bandeja de consultas y módulo de estudio. El widget del chatbot ya no aparece en la intranet.
+- [x] Cada cuenta inicia sesión solo en su aplicación (`AuthService.perteneceAEstaAplicacion`); al equivocarse de app se le muestra el enlace correcto.
+- [x] Despliegue: un contenedor nginx sirve ambas apps (puertos 80 y 81) con cabeceras de seguridad (CSP, `X-Frame-Options`, `Referrer-Policy`) y proxy `/api`.
+- [ ] Cliente API generado desde OpenAPI (opcional; se pospone).
 
-**Criterio de aceptación**: ambas apps compilan y se despliegan por separado; flujos principales probados en móvil y escritorio, claro y oscuro.
+**Verificación**: 115 tests de backend, 10 de frontend, build de producción de ambas apps y recorrido con Chrome headless (15 pantallas de portal e intranet, escritorio y móvil, con datos de pretest/postest cargados): 0 errores de consola. El recorrido encontró y se corrigieron dos fallos: el dashboard se rompía cuando el backend omitía `cumplimientoTratamientoPorcentaje` (ahora el DTO serializa los nulos) y «1 citas» → «1 cita». No se tomaron capturas en tema oscuro.
 
 ### Fase 6 — Exportación y análisis (≈ 1 semana)
 - [ ] `GET /estudio/exportaciones/spss.xlsx` (hoja pareada por participante, detalle por indicador, diccionario de variables).

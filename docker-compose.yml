@@ -43,7 +43,7 @@ services:
       DB_USUARIO: oncologia
       DB_PASSWORD: ${POSTGRES_PASSWORD:-oncologia}
       JWT_SECRET: ${JWT_SECRET:-cambia-este-secreto-en-produccion-minimo-32-caracteres}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:4300}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
       N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
       N8N_BASE_URL: http://n8n:5678
@@ -60,13 +60,17 @@ services:
       retries: 10
       start_period: 60s
 
+  # Una imagen, dos aplicaciones: portal del paciente (:4200) e intranet del
+  # personal (:4300). En produccion, la intranet se publica solo en la red de
+  # la fundacion o detras de VPN.
   frontend:
     build: ./frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "4200:80"
+      - "${PORTAL_HOST_PORT:-4200}:80"
+      - "${INTRANET_HOST_PORT:-4300}:81"
 
   # n8n en modo "regular": un solo proceso recibe webhooks y ejecuta los
   # workflows, suficiente para el volumen del piloto. Para escalar, activar el
