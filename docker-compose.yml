@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oncologia
+      POSTGRES_USER: oncologia
+      POSTGRES_PASSWORD: oncologia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oncologia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/oncologia
+      DB_USUARIO: oncologia
+      DB_PASSWORD: oncologia
+      JWT_SECRET: ${JWT_SECRET:-cambia-este-secreto-en-produccion-minimo-32-caracteres}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
+      N8N_BASE_URL: http://n8n:5678
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      REGISTRO_PACIENTES_HABILITADO: ${REGISTRO_PACIENTES_HABILITADO:-false}
+    ports:
+      - "${BACKEND_HOST_PORT:-8080}:8080"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-cambia-esta-clave}
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      WEBHOOK_URL: http://localhost:5678/
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      # Usadas por los workflows en n8n/workflows/ (ver n8n/README.md)
+      ONCOLOGIA_API_URL: http://backend:8080/api/v1
+      ONCOLOGIA_SERVICE_EMAIL: ${ONCOLOGIA_SERVICE_EMAIL:-n8n@threepartners.org}
+      ONCOLOGIA_SERVICE_PASSWORD: ${ONCOLOGIA_SERVICE_PASSWORD:-cambia-esta-clave}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+    depends_on:
+      redis:
+        condition: service_started
+      backend:
+        condition: service_started
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "${N8N_HOST_PORT:-5678}:5678"
+
+  # Broker MQTT opcional para el adaptador de dispositivos IoT (seccion 14).
+  # Deshabilitado por defecto: activar junto con MQTT_ENABLED=true en el backend.
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1883:1883"
+  #   volumes:
+  #     - ./mosquitto/config:/mosquitto/config
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:

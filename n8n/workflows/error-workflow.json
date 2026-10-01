@@ -1,0 +1,75 @@
+{
+  "name": "Oncologia - Error Workflow",
+  "id": "dbbc7dd9-889c-48ae-a2ea-04de72415772",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "5f1a2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b",
+      "name": "Al fallar cualquier workflow",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "6a2b3c4d-5e6f-4071-8b8c-0d1e2f3a4b5c",
+      "name": "Formatear detalle del error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 0],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7b3c4d5e-6f70-4182-9c9d-1e2f3a4b5c6d",
+              "name": "workflow",
+              "value": "={{ $json.workflow.name }}",
+              "type": "string"
+            },
+            {
+              "id": "8c4d5e6f-7081-4293-ad0e-2f3a4b5c6d7e",
+              "name": "nodoQueFallo",
+              "value": "={{ $json.execution.lastNodeExecuted }}",
+              "type": "string"
+            },
+            {
+              "id": "9d5e6f70-8192-4304-be1f-3a4b5c6d7e8f",
+              "name": "mensajeError",
+              "value": "={{ $json.execution.error.message }}",
+              "type": "string"
+            },
+            {
+              "id": "ae6f7081-9203-4415-cf20-4b5c6d7e8f90",
+              "name": "urlEjecucion",
+              "value": "={{ $json.execution.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bf708192-0314-4526-d031-5c6d7e8f90a1",
+      "name": "Conectar canal de alertas (email, Slack, Telegram...)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [520, 0],
+      "notes": "Placeholder: reemplaza este nodo por el canal real de la fundacion (Send Email, Slack, Telegram, etc.) usando los campos generados en 'Formatear detalle del error'. Seccion 15: el objetivo es que un fallo notifique al equipo tecnico en vez de fallar en silencio.",
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Al fallar cualquier workflow": {
+      "main": [[{ "node": "Formatear detalle del error", "type": "main", "index": 0 }]]
+    },
+    "Formatear detalle del error": {
+      "main": [[{ "node": "Conectar canal de alertas (email, Slack, Telegram...)", "type": "main", "index": 0 }]]
+    }
+  }
+}

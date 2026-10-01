@@ -1,0 +1,63 @@
+{
+  "name": "Oncologia - Obtener Token de Servicio",
+  "id": "85b21806-8fc1-4c83-a80d-fe8ab9cd4e77",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "86d4658a-984a-4cd5-9698-553158dd875d",
+      "name": "Al ser llamado",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "515d9056-a81e-4da5-954c-88f1601edece",
+      "name": "Login servicio backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONCOLOGIA_API_URL }}/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $env.ONCOLOGIA_SERVICE_EMAIL, password: $env.ONCOLOGIA_SERVICE_PASSWORD }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "34512aa3-6725-4ac7-819c-1c908d6e8b6e",
+      "name": "Preparar salida",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 0],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9e16d413-8660-400d-b356-34d83b94c9c8",
+              "name": "accessToken",
+              "value": "={{ $json.accessToken }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Al ser llamado": {
+      "main": [[{ "node": "Login servicio backend", "type": "main", "index": 0 }]]
+    },
+    "Login servicio backend": {
+      "main": [[{ "node": "Preparar salida", "type": "main", "index": 0 }]]
+    }
+  }
+}

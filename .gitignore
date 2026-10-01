@@ -1,0 +1,15 @@
+### Secretos ###
+.env
+.env.*
+!.env.example
+
+### Sistema operativo / IDE ###
+.DS_Store
+.vscode/
+.idea/
+
+### Builds y dependencias ###
+node_modules/
+dist/
+target/
+*.log
