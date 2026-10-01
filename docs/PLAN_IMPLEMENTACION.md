@@ -111,19 +111,19 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Criterio de aceptación**: ninguna cita pasada queda sin desenlace más de 48 h; el TNS del dashboard coincide con un cálculo manual.
 
-### Fase 3 — Chatbot orientado a consultas (≈ 1,5 semanas) — *H3*
-- [ ] `ejecutarAccion` devuelve un resultado tipado (`EXITO`, `INFORMATIVA`, `REQUIERE_SESION`, `ERROR_NEGOCIO`, `ESCALAR`).
-- [ ] `GestorConsultaService`: abrir/continuar/cerrar consultas por sesión e intención; `conversacion_chatbot.consulta_id`.
-- [ ] Valoración 👍/👎 en el widget; botón "Hablar con una persona" → `ESCALADA`.
-- [ ] Bandeja de consultas en la intranet (resolver / no resuelta) + job de escaladas sin respuesta (48 h).
-- [ ] Base de conocimiento de preguntas frecuentes de la fundación (horarios, requisitos, ubicación, servicios) inyectada como contexto a Gemini para que `GENERAL_QUERY` se resuelva con información real.
-- [ ] Canal en el request del chatbot (`CHATBOT_WEB` / `TELEGRAM`).
+### Fase 3 — Chatbot orientado a consultas (≈ 1,5 semanas) — *H3* — ✅ completada
+- [x] `ejecutarAccion` devuelve un resultado tipado (`EXITO`, `INFORMATIVA`, `REQUIERE_DATOS`, `REQUIERE_SESION`, `ERROR_NEGOCIO`, `ESCALAR`) decidido por el backend, nunca por el modelo.
+- [x] `GestorConsultasChatbot`: una consulta por necesidad; continúa con la misma intención o una pregunta intercalada; cambiar de necesidad cierra la anterior como NO_RESUELTA; repetir la misma pregunta en 10 min la reabre; 4 turnos sin resolver → escalada. `conversacion_chatbot.consulta_id` enlaza cada mensaje.
+- [x] Valoración 👍/👎 (👎 sobre una respuesta del bot → escalada) y «Hablar con una persona» en el widget; propiedad verificada por id de sesión.
+- [x] Bandeja de consultas en la intranet (conversación + resolver / no resuelta) y job cada 10 min: abiertas sin actividad 30 min → NO_RESUELTA; escaladas sin atención 48 h → NO_RESUELTA.
+- [x] Base de conocimiento (`pregunta_frecuente`, migración V7) administrable desde la intranet e inyectada en el prompt; si la respuesta no está en la información oficial, el modelo debe escalar (un «no sé» no cuenta como resuelta).
+- [x] El aviso de escalamiento a n8n solo lleva id y canal (sin texto del paciente).
 
-**Criterio de aceptación**: cada conversación de prueba genera consultas con resultado correcto; NCA y NCA_auto visibles en el dashboard.
+**Verificación**: 103 tests de backend (reglas del gestor con repositorio en memoria), build del frontend y prueba de humo HTTP con un stub local de la API de Gemini (sin consumir la clave real).
 
 ### Fase 4 — Telegram + n8n (≈ 2 semanas) — *H2 y H3*
 - [ ] Crear el bot con @BotFather; credencial en n8n; túnel HTTPS para desarrollo.
-- [ ] Migración `V7__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, `recordatorio`).
+- [ ] Migración `V8__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, `recordatorio`).
 - [ ] Vinculación: token de un solo uso (portal y desde la ficha del paciente en recepción, con QR) → deep link `t.me/<bot>?start=<token>`.
 - [ ] `ProgramarRecordatoriosJob` (72 h / 24 h / 2 h), cancelación de recordatorios al cancelar/reprogramar.
 - [ ] Endpoints `recordatorios/pendientes` (con `SKIP LOCKED`) y `resultado`; `accion-cita` (confirmar/cancelar/reprogramar con verificación de dueño).

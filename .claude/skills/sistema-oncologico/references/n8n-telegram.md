@@ -21,7 +21,7 @@ Así, si mañana se cambia Telegram por WhatsApp o SMS, solo cambia el workflow 
 - `callback_data` de los botones admite máximo 64 bytes → usar `r:<recordatorioId>:<accion>`.
 - Límites: ~1 mensaje/s por chat y ~30 mensajes/s global. Enviar en lotes (`Split In Batches` + `Wait`).
 
-## Modelo de datos (migración `V7__telegram_recordatorios.sql`)
+## Modelo de datos (migración `V8__telegram_recordatorios.sql`)
 
 ```sql
 ALTER TABLE paciente

@@ -138,7 +138,7 @@ La migración real es la fuente de verdad; léela antes de cambiar el modelo. Re
 - `consulta`: resultado null = abierta; ESCALADA espera al personal; trigger `proteger_consulta` (sin DELETE, fecha y canal inmutables, cerradas solo se anulan).
 - `correccion_medicion`: toda anulación deja motivo, usuario y valores.
 - `cita`: `origen` (INTRANET/PORTAL/CHATBOT_WEB/TELEGRAM/CAPTURA_PRETEST), `fecha_creacion`, `fecha_hora_desenlace`, `desenlace_registrado_por`, `cierre_automatico`, `veces_reprogramada`; `medico_id` admite null solo en CAPTURA_PRETEST.
-- Tablas nuevas siempre con `TIMESTAMPTZ`; la siguiente migración libre es **V7**.
+- Tablas nuevas siempre con `TIMESTAMPTZ`; V7 agrega `turnos`, `ultima_actividad_en` y `nota_resolucion` a `consulta`, y la tabla `pregunta_frecuente`; la siguiente migración libre es **V8**.
 
 ## 7. Cálculo, endpoints y exportación para SPSS
 
