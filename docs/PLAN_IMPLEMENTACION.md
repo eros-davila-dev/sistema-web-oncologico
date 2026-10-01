@@ -100,10 +100,14 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Criterio de aceptación**: con un escenario sembrado conocido, los tres indicadores dan el valor esperado en tests de integración; el investigador puede empezar a capturar el pretest.
 
-### Fase 2 — Agenda de recepción y desenlace de citas (≈ 1 semana) — *H2*
-- [ ] `GET /citas/agenda?fecha=` y pantalla "Agenda del día" con "Llegó" / "No asistió" (registra `fecha_hora_desenlace`, `desenlace_registrado_por`).
-- [ ] Bandeja de "citas pendientes de cierre" + job de cierre automático a las 48 h (`cierre_automatico = true`), corregible con auditoría.
-- [ ] Medición de TPR en el formulario de nueva cita de la intranet.
+### Fase 2 — Agenda de recepción y desenlace de citas (≈ 1 semana) — *H2* — ✅ completada
+- [x] `GET /citas/agenda?fecha=` (un médico solo ve sus citas) y pantalla «Agenda del día» con «Llegó» / «No asistió» (registra `fecha_hora_desenlace`, `desenlace_registrado_por`); la recepción aterriza en ella al iniciar sesión.
+- [x] No se puede registrar el desenlace de una cita futura.
+- [x] Bandeja de «citas pendientes de cierre» + job horario de cierre automático a las 48 h (`app.agenda.horas-cierre-automatico`, `cierre_automatico = true`).
+- [x] `PATCH /citas/{id}/corregir-desenlace` con motivo obligatorio (queda en `correccion_medicion` y en la auditoría).
+- [x] Medición de TPR en el formulario de nueva cita de la intranet (hecho en Fase 1).
+
+**Verificación**: 90 tests de backend (incluye integración de las consultas de agenda y cierre), build del frontend y prueba de humo HTTP.
 
 **Criterio de aceptación**: ninguna cita pasada queda sin desenlace más de 48 h; el TNS del dashboard coincide con un cálculo manual.
 
