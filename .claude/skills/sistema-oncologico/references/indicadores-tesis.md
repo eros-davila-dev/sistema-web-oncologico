@@ -26,7 +26,7 @@ Sin esto, ningún indicador es atribuible a la muestra ni al periodo correcto.
 
 - `estudio_fase`: `PRETEST` y `POSTEST`, cada una con `fecha_inicio` y `fecha_fin` (y opcionalmente `estado` ABIERTA/CERRADA). Configurable por `ADMIN`/`INVESTIGADOR`.
 - `participante_estudio`: vincula `paciente_id` con `codigo` (`P01`), `fecha_consentimiento`, `incluido` (bool) y `motivo_exclusion` (criterios de la tesis: suspende tratamiento, fallece, retira consentimiento, registros incompletos).
-- Cada evento medible guarda la **fase explícitamente** al momento de insertarse (resuelta por un servicio `ResolverFaseEstudio` según la fecha del evento). Guardarla —en vez de deducirla luego— congela el dato aunque después se editen las fechas de la fase.
+- **Implementado así**: la fase de un evento se **deriva de su fecha** y de las fechas de `estudio_fase` (no se guarda en cada fila: una sola fuente de verdad). Lo que congela los resultados es **cerrar la fase** (`estado = CERRADA` impide cambiar sus fechas y capturar fichas en ella). Servicio: `PeriodosEstudioService`.
 - Los indicadores se pueden pedir con tres alcances: `GLOBAL` (todo el sistema, para la gestión diaria), `MUESTRA` (solo participantes incluidos) y `POR_PARTICIPANTE` (para Wilcoxon). La tesis usa `MUESTRA` y `POR_PARTICIPANTE`.
 
 ## 3. H1 — TPR, tiempo promedio de registro
@@ -48,7 +48,7 @@ Patrón **sesión de medición**, sellado por el servidor:
 2. El request de guardado (`POST /citas`, `POST /pacientes`) incluye `medicionId`. El caso de uso, **en la misma transacción** que persiste la cita/paciente, cierra la medición: `fin = now()`, `entidad_id`, `paciente_id`, `usuario_id` del operador.
 3. Una medición sin cerrar después de 60 min (configurable) se marca `ABANDONADA` por un job y **no entra** al promedio (sí se reporta como dato descriptivo: tasa de abandono de formularios).
 4. Validaciones: la medición pertenece al mismo usuario que guarda; no se reutiliza; si `fin - inicio` < 5 s se marca `SOSPECHOSA` para revisión (no se descarta automáticamente).
-5. Eliminar `tiempoRegistroSegundos` de los DTO y de los formularios Angular (hoy se calcula con `Date.now()` en el navegador). La columna `paciente.tiempo_registro_segundos` queda obsoleta; se migra su contenido a `medicion_registro` con `origen = LEGADO` o se ignora, pero no se sigue alimentando.
+5. Eliminar `tiempoRegistroSegundos` de los DTO y de los formularios Angular (hoy se calcula con `Date.now()` en el navegador). La columna `paciente.tiempo_registro_segundos` queda obsoleta (comentada en V6, ya no se lee ni se escribe).
 
 Canales: `INTRANET`, `PORTAL`, `CHATBOT_WEB`, `TELEGRAM`, `MANUAL` (pretest). Los registros autoservicio (chatbot/portal) se reportan por separado, porque miden el tiempo del paciente y no del personal; el TPR de la hipótesis usa por defecto `INTRANET` + `MANUAL` (comparación justa: personal antes vs. personal después). Hacer el filtro de canal parametrizable en el endpoint.
 
@@ -61,7 +61,7 @@ Pantalla "Ficha de registro de tiempos — Pretest" (rol `INVESTIGADOR`): partic
 ```
 TPR_min = AVG(duracion_segundos) / 60
           sobre medicion_registro
-          donde estado = 'COMPLETADA' AND tipo = :tipo AND fase = :fase
+          donde estado = 'COMPLETADA' AND tipo = :tipo AND inicio dentro del periodo de la fase
             AND canal IN (:canales) AND [paciente en muestra]
 ```
 Por participante: el mismo promedio agrupado por `paciente_id`.
@@ -74,7 +74,7 @@ Por participante: el mismo promedio agrupado por `paciente_id`.
 
 - `NI` (inasistencias): citas con desenlace `NO_ASISTIO` — el paciente no acudió **sin previo aviso**.
 - `NCC` (citas cumplidas): citas con desenlace `ATENDIDA`.
-- **No entran** al denominador: `CANCELADA` (hubo aviso), citas reprogramadas (la cita original pasa a `REPROGRAMADA` y la nueva es la que cuenta), citas futuras, citas `PROGRAMADA`/`CONFIRMADA` sin desenlace registrado.
+- **No entran** al denominador: `CANCELADA` (hubo aviso), (una cita reprogramada es la misma cita: cuenta una vez, con su desenlace final; `veces_reprogramada` guarda cuántas veces se movió y no se puede reprogramar una cita en estado final), citas futuras, citas `PROGRAMADA`/`CONFIRMADA` sin desenlace registrado.
 - El periodo se filtra por **fecha de la cita**, no por fecha de creación.
 
 > El código actual calcula `NO_ASISTIO / total de citas del periodo`; ese denominador incluye canceladas y futuras y subestima el ausentismo. Corregir en `IndicadoresRepositoryAdapter`.
@@ -110,7 +110,7 @@ Una consulta es **una necesidad del usuario**, no un mensaje. Una conversación 
 | `RESUELTA_PERSONAL` | Un trabajador atendió la consulta escalada y la marcó como resuelta |
 | `NO_RESUELTA` | Escalada sin respuesta en 48 h, o cerrada por el personal como no resuelta, o abandonada sin resolución en una intención accionable |
 
-Cada consulta guarda: `canal` (`CHATBOT_WEB`, `TELEGRAM`, `WHATSAPP`, `LLAMADA`, `PRESENCIAL`), `intencion`, `paciente_id` (si se identificó), `sesion_id`, `abierta_en`, `cerrada_en`, `resultado`, `resuelta_por_usuario_id`, `valoracion` (1/-1/null), `tiempo_primera_respuesta_ms`, `fase`.
+Cada consulta guarda: `canal` (`CHATBOT_WEB`, `TELEGRAM`, `WHATSAPP`, `LLAMADA`, `PRESENCIAL`), `intencion`, `paciente_id` (si se identificó), `sesion_id`, `abierta_en`, `cerrada_en`, `resultado`, `resuelta_por_usuario_id`, `valoracion` (1/-1/null), `tiempo_primera_respuesta_ms` (la fase se deriva de `abierta_en`).
 
 ### Cálculo
 
@@ -129,90 +129,16 @@ Usar el NCA total para la hipótesis mantiene la comparación justa con el prete
 
 `ChatbotOrquestadorUseCase.procesar` hoy guarda cada mensaje en `conversacion_chatbot`. Añadir un `GestorConsultaService` que, en cada turno, decida abrir/continuar/cerrar la consulta en función de la intención y del resultado de `ejecutarAccion`. Para eso `ejecutarAccion` debe devolver un resultado tipado (`RespuestaChatbot(texto, ResultadoAccion)`: `EXITO`, `INFORMATIVA`, `REQUIERE_SESION`, `ERROR_NEGOCIO`, `ESCALAR`) en lugar de un `String`. Añadir botones 👍/👎 en el widget y en Telegram (`POST /chatbot/consultas/{id}/valoracion`).
 
-## 6. Modelo de datos (migración propuesta `V5__modulo_estudio_indicadores.sql`)
+## 6. Modelo de datos (implementado en `V6__modulo_estudio_indicadores.sql`)
 
-```sql
-CREATE TABLE estudio_fase (
-    id            BIGSERIAL PRIMARY KEY,
-    fase          VARCHAR(10) NOT NULL UNIQUE CHECK (fase IN ('PRETEST','POSTEST')),
-    fecha_inicio  DATE NOT NULL,
-    fecha_fin     DATE NOT NULL,
-    estado        VARCHAR(10) NOT NULL DEFAULT 'ABIERTA',
-    CHECK (fecha_fin >= fecha_inicio)
-);
+La migración real es la fuente de verdad; léela antes de cambiar el modelo. Resumen:
 
-CREATE TABLE participante_estudio (
-    id                    BIGSERIAL PRIMARY KEY,
-    paciente_id           BIGINT NOT NULL UNIQUE REFERENCES paciente (id),
-    codigo                VARCHAR(10) NOT NULL UNIQUE,          -- P01..P30
-    fecha_consentimiento  DATE NOT NULL,
-    incluido              BOOLEAN NOT NULL DEFAULT TRUE,
-    motivo_exclusion      VARCHAR(40),
-    observacion           TEXT
-);
-
-CREATE TABLE medicion_registro (
-    id                 BIGSERIAL PRIMARY KEY,
-    tipo               VARCHAR(30) NOT NULL,   -- REGISTRO_CITA | REGISTRO_PACIENTE | ACTUALIZACION_PACIENTE
-    canal              VARCHAR(20) NOT NULL,   -- INTRANET | PORTAL | CHATBOT_WEB | TELEGRAM | MANUAL
-    fase               VARCHAR(10),
-    estado             VARCHAR(15) NOT NULL,   -- EN_CURSO | COMPLETADA | ABANDONADA | SOSPECHOSA
-    usuario_id         BIGINT REFERENCES usuario (id),
-    paciente_id        BIGINT REFERENCES paciente (id),
-    entidad_id         BIGINT,
-    inicio             TIMESTAMPTZ NOT NULL,
-    fin                TIMESTAMPTZ,
-    duracion_segundos  INTEGER GENERATED ALWAYS AS (EXTRACT(EPOCH FROM (fin - inicio))::INTEGER) STORED,
-    capturado_por      BIGINT REFERENCES usuario (id),   -- solo MANUAL
-    observacion        TEXT
-);
-CREATE INDEX idx_medicion_registro_calculo ON medicion_registro (tipo, fase, estado, canal);
-CREATE INDEX idx_medicion_registro_paciente ON medicion_registro (paciente_id);
-
-CREATE TABLE consulta (
-    id                          BIGSERIAL PRIMARY KEY,
-    canal                       VARCHAR(20) NOT NULL,
-    sesion_id                   VARCHAR(100),
-    paciente_id                 BIGINT REFERENCES paciente (id),
-    intencion                   VARCHAR(40),
-    resumen                     VARCHAR(300),
-    fase                        VARCHAR(10),
-    resultado                   VARCHAR(20),       -- null mientras esta abierta
-    abierta_en                  TIMESTAMPTZ NOT NULL,
-    cerrada_en                  TIMESTAMPTZ,
-    tiempo_primera_respuesta_ms INTEGER,
-    valoracion                  SMALLINT CHECK (valoracion IN (-1, 1)),
-    resuelta_por_usuario_id     BIGINT REFERENCES usuario (id),
-    capturado_por               BIGINT REFERENCES usuario (id)
-);
-CREATE INDEX idx_consulta_calculo ON consulta (fase, resultado, canal);
-CREATE INDEX idx_consulta_sesion ON consulta (sesion_id);
-ALTER TABLE conversacion_chatbot ADD COLUMN consulta_id BIGINT REFERENCES consulta (id);
-
-ALTER TABLE cita
-    ADD COLUMN origen                    VARCHAR(25) NOT NULL DEFAULT 'INTRANET', -- INTRANET|PORTAL|CHATBOT_WEB|TELEGRAM|IMPORTACION_PRETEST
-    ADD COLUMN fase                      VARCHAR(10),
-    ADD COLUMN fecha_creacion            TIMESTAMPTZ NOT NULL DEFAULT now(),
-    ADD COLUMN fecha_hora_desenlace      TIMESTAMPTZ,
-    ADD COLUMN desenlace_registrado_por  BIGINT REFERENCES usuario (id),
-    ADD COLUMN cierre_automatico         BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN cita_origen_id            BIGINT REFERENCES cita (id);           -- trazabilidad de reprogramaciones
-
--- Correcciones: nunca UPDATE sobre mediciones cerradas; se registra el ajuste.
-CREATE TABLE correccion_medicion (
-    id            BIGSERIAL PRIMARY KEY,
-    entidad       VARCHAR(30) NOT NULL,   -- MEDICION_REGISTRO | CONSULTA | CITA_DESENLACE
-    entidad_id    BIGINT NOT NULL,
-    campo         VARCHAR(40) NOT NULL,
-    valor_previo  TEXT,
-    valor_nuevo   TEXT,
-    motivo        TEXT NOT NULL,
-    usuario_id    BIGINT NOT NULL REFERENCES usuario (id),
-    fecha         TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
-
-Añadir `REPROGRAMADA` a `EstadoCita` y el rol `INVESTIGADOR` a `Rol`. Proteger `medicion_registro` con un trigger que solo permita `UPDATE` de filas `EN_CURSO` (cerrarlas) y ningún `DELETE`.
+- `estudio_fase` (PRETEST/POSTEST, fechas, ABIERTA/CERRADA) y `participante_estudio` (código Pnn, consentimiento, exclusión con motivo).
+- `medicion_registro`: `tipo`, `canal`, `estado` (EN_CURSO/COMPLETADA/ABANDONADA/ANULADA), `sospechosa` (< 5 s), `inicio`, `fin`, `duracion_segundos` **generada** por PostgreSQL. Trigger `proteger_medicion_registro`: sin DELETE; solo se puede cerrar una EN_CURSO o anular una COMPLETADA.
+- `consulta`: resultado null = abierta; ESCALADA espera al personal; trigger `proteger_consulta` (sin DELETE, fecha y canal inmutables, cerradas solo se anulan).
+- `correccion_medicion`: toda anulación deja motivo, usuario y valores.
+- `cita`: `origen` (INTRANET/PORTAL/CHATBOT_WEB/TELEGRAM/CAPTURA_PRETEST), `fecha_creacion`, `fecha_hora_desenlace`, `desenlace_registrado_por`, `cierre_automatico`, `veces_reprogramada`; `medico_id` admite null solo en CAPTURA_PRETEST.
+- Tablas nuevas siempre con `TIMESTAMPTZ`; la siguiente migración libre es **V7**.
 
 ## 7. Cálculo, endpoints y exportación para SPSS
 

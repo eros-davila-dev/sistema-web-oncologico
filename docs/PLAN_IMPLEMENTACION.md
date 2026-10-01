@@ -40,9 +40,9 @@ Reducir el **tiempo promedio de registro (TPR)**, reducir la **tasa de ausentism
 | B8 | No hay forma de cargar los datos del pretest en el sistema | Pretest y postest saldrían de fuentes distintas | — |
 | B9 | No hay exportación pareada para SPSS | Análisis manual propenso a errores | — |
 
-**Brechas técnicas**:
-- El proyecto **no está bajo git**.
-- `docker-compose.yml`: n8n en `EXECUTIONS_MODE=queue` sin worker ni PostgreSQL propio (los workflows no se ejecutarían); imagen `latest`; `N8N_BASIC_AUTH_*` obsoleto.
+**Brechas técnicas** (las de Fase 0 ya resueltas):
+- ~~El proyecto no está bajo git~~ (resuelto).
+- ~~`docker-compose.yml`: n8n en modo cola sin worker~~ (resuelto en Fase 0).
 - Canal de recordatorios en WhatsApp (requiere plantillas aprobadas por Meta); se reemplaza por **Telegram**.
 - Una sola app Angular para pacientes y personal.
 - Sin ShedLock, sin outbox hacia n8n, rate limit en memoria.
@@ -70,27 +70,33 @@ Reducir el **tiempo promedio de registro (TPR)**, reducir la **tasa de ausentism
 
 Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronograma (Tabla 4 de la tesis). **El orden importa**: la captura del pretest (Fase 1) debe estar lista lo antes posible, porque el pretest se mide *antes* de poner el sistema en producción.
 
-### Fase 0 — Fundaciones (≈ 1 semana)
-- [ ] `git init`, primer commit del estado actual, rama `main` protegida, ramas por fase.
-- [ ] Corregir `docker-compose.yml`: n8n en modo `regular` (o worker + PostgreSQL para n8n), versión fija, `N8N_ENCRYPTION_KEY`, `GENERIC_TIMEZONE=America/Lima`, quitar basic auth obsoleto.
-- [ ] Bean `Clock` con zona `America/Lima`; migrar timestamps nuevos a `TIMESTAMPTZ`.
-- [ ] ShedLock + tabla `shedlock`.
-- [ ] Test ArchUnit de capas hexagonales; JaCoCo.
-- [ ] GitHub Actions: backend `verify`, frontend `test` + `build`.
-- [ ] Rol `INVESTIGADOR` (y rol técnico `SERVICIO` para n8n).
+### Fase 0 — Fundaciones (≈ 1 semana) — ✅ completada
+- [x] `git init`, commit del estado inicial y un commit por fase. *(Pendiente del usuario: publicar en GitHub y proteger `main`.)*
+- [x] `docker-compose.yml`: n8n 2.41.5 fijado, base PostgreSQL propia para n8n (`docker/postgres/init`), modo `regular` y perfil `escalado` con worker, `N8N_ENCRYPTION_KEY`, zona Lima, `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` (n8n 2.x bloquea `$env` por defecto).
+- [x] Bean `Clock` (America/Lima); tablas nuevas con `TIMESTAMPTZ`.
+- [x] ShedLock 6.10 + tabla `shedlock` (migración V5).
+- [x] Test ArchUnit de capas hexagonales; JaCoCo. Se corrigió la única violación: casos de uso de `auth` usaban el adaptador de n8n → puerto `NotificadorExternoPort`.
+- [x] GitHub Actions (`.github/workflows/ci.yml`): backend con PostgreSQL de servicio, frontend test + build, validación de JSON de n8n.
+- [x] Roles `INVESTIGADOR` y `SERVICIO`.
+- [x] Base de tests de integración: Testcontainers si hay Docker, o `TEST_DB_URL` apuntando a una base cuyo nombre contenga `test` (protección contra vaciar la base de desarrollo).
 
 **Criterio de aceptación**: `docker compose up` levanta todo; CI en verde.
 
-### Fase 1 — Módulo de estudio y corrección de indicadores (≈ 2 semanas) — *núcleo de la tesis*
-- [ ] Migración `V5__modulo_estudio_indicadores.sql` (fases, participantes, `medicion_registro`, `consulta`, columnas nuevas de `cita`, `correccion_medicion`, triggers de solo inserción).
-- [ ] Dominio `estudio`: fórmulas puras TPR/TNS/NCA con tests de casos borde.
-- [ ] Sesión de medición de registro: `POST /mediciones/registro`; `AgendarCitaUseCase` y `RegistrarPacienteUseCase` cierran la medición en su transacción; job de abandonadas.
-- [ ] Eliminar `tiempoRegistroSegundos` del cliente y de los DTO (B1).
-- [ ] Corregir TNS (B4) y reemplazar "consultas atendidas" por NCA real (B5).
-- [ ] `EstadoCita.REPROGRAMADA` + `cita_origen_id`; la reprogramación cierra la cita original.
-- [ ] API de fases y participantes.
-- [ ] **Fichas pretest digitales** (tiempos, ausentismo, consultas) + importación CSV/XLSX de las hojas de cálculo históricas.
-- [ ] `GET /estudio/indicadores` con `fase` y `alcance` (GLOBAL/MUESTRA/POR_PARTICIPANTE).
+### Fase 1 — Módulo de estudio y corrección de indicadores (≈ 2 semanas) — *núcleo de la tesis* — ✅ completada
+- [x] Migración `V6__modulo_estudio_indicadores.sql` (fases, participantes, `medicion_registro`, `consulta`, columnas nuevas de `cita`, `correccion_medicion`, triggers que impiden borrar o reescribir mediciones y consultas).
+- [x] Dominio `estudio`: fórmulas puras TPR/TNS/NCA (`CalculoIndicadores`) con tests de casos borde.
+- [x] Sesión de medición: `POST /mediciones/registro` (el canal lo decide el servidor según el rol); alta de paciente, actualización, completar perfil y agendar cita la cierran en su transacción; job de abandonadas cada 15 min.
+- [x] Eliminado `tiempoRegistroSegundos` del cliente y de los DTO (B1, B2).
+- [x] TNS corregido (B4) y NCA real sobre `consulta` (B5, B6).
+- [x] Reprogramación: **decisión** — se mantiene la misma cita (cuenta una sola vez en el TNS con su desenlace final) con `veces_reprogramada`; se prohíbe reprogramar una cita ya atendida, no asistida o cancelada (antes se podía y borraba el desenlace).
+- [x] Desenlace de cita con `fecha_hora_desenlace` y `desenlace_registrado_por`.
+- [x] API de fases (sin solapamiento; cerrar congela) y participantes (códigos P01…, exclusión con motivo).
+- [x] **Fichas del Anexo 2 digitales** + importación .xlsx/.csv (todo o nada, vista previa, plantillas, encabezados literales de la tesis aceptados).
+- [x] `GET /estudio/indicadores` (fase o rango, alcance GLOBAL/MUESTRA), `/comparativo` y `/pareado`; dashboard con el mismo cálculo.
+- [x] Intranet: módulo «Estudio de tesis» (resultados, fases y muestra, fichas, revisión y anulación de datos).
+- [x] **Decisión**: la fase de un evento se deriva de sus fechas y de las fechas de la fase (no se guarda en cada fila); cerrar la fase congela sus resultados.
+
+**Verificación**: 83 tests de backend (incluye integración contra PostgreSQL con un escenario conocido por indicador), 7 de frontend, build de producción y prueba de humo HTTP completa.
 
 **Criterio de aceptación**: con un escenario sembrado conocido, los tres indicadores dan el valor esperado en tests de integración; el investigador puede empezar a capturar el pretest.
 
@@ -113,7 +119,7 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 ### Fase 4 — Telegram + n8n (≈ 2 semanas) — *H2 y H3*
 - [ ] Crear el bot con @BotFather; credencial en n8n; túnel HTTPS para desarrollo.
-- [ ] Migración `V6__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, `recordatorio`).
+- [ ] Migración `V7__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, `recordatorio`).
 - [ ] Vinculación: token de un solo uso (portal y desde la ficha del paciente en recepción, con QR) → deep link `t.me/<bot>?start=<token>`.
 - [ ] `ProgramarRecordatoriosJob` (72 h / 24 h / 2 h), cancelación de recordatorios al cancelar/reprogramar.
 - [ ] Endpoints `recordatorios/pendientes` (con `SKIP LOCKED`) y `resultado`; `accion-cita` (confirmar/cancelar/reprogramar con verificación de dueño).

@@ -31,7 +31,7 @@ Regla de dependencia: `infrastructure → application → domain`. El dominio nu
 2. `application/estudio/`: `IniciarMedicionRegistroUseCase`, `CerrarMedicionRegistroUseCase` (lo invocan otros casos de uso dentro de su transacción), `RegistrarMedicionManualUseCase`, `ConsultarIndicadoresEstudioUseCase`, `ExportarDatosSpssUseCase`, `GestionarParticipantesUseCase`, `ImportarCitasPretestUseCase`.
 3. `infrastructure/out/persistence/jpa/`: entidades JPA + repositorios + adaptadores. Consultas de agregación con JPQL o `@Query(nativeQuery = true)` devolviendo proyecciones; nada de traer todas las filas a memoria para contar.
 4. `infrastructure/in/rest/EstudioController` + DTOs en `dto/estudio/` + mapper.
-5. Migración `V5__modulo_estudio_indicadores.sql` (ver `indicadores-tesis.md` §6).
+5. Migración nueva con el siguiente número libre (V5 = ShedLock y V6 = estudio ya existen; ver `indicadores-tesis.md` §6).
 6. Tests: unitarios del caso de uso con Mockito (patrón de `AgendarCitaUseCaseTest`), unitarios de las fórmulas, integración con Testcontainers para las consultas de agregación.
 
 ## Patrones concretos de este proyecto
@@ -65,6 +65,14 @@ Los endpoints que invoca n8n se autentican con `X-Webhook-Secret` (ya existe `We
 - `ProgramarRecordatoriosJob` (cada 15 min): crea filas en `recordatorio` para citas próximas según la política (72 h, 24 h, 2 h).
 - `CitasPendientesCierreJob` (23:00) y `CierreAutomaticoInasistenciaJob` (diario, 48 h).
 - `ConsultasSinRespuestaJob` (cada hora): escaladas > 48 h → `NO_RESUELTA`.
+
+## Lecciones ya aprendidas en este repo
+
+- **Filtros opcionales**: no uses `(:p IS NULL OR campo = :p)` en JPQL; PostgreSQL falla con "no se pudo determinar el tipo del parámetro" cuando `p` es nulo. Usa `JpaSpecificationExecutor` + `FiltrosJpa` (`infrastructure/out/persistence/jpa/FiltrosJpa.java`).
+- **Agregaciones de indicadores**: SQL nativo con `NamedParameterJdbcTemplate` (`IndicadoresEstudioJdbcAdapter`), pasando instantes como `OffsetDateTime` en UTC.
+- **JSON**: la aplicación omite nulos (`default-property-inclusion: non_null`); los DTO donde `null` significa algo ("sin datos") llevan `@JsonInclude(ALWAYS)`.
+- **Spring Data no detecta repositorios anidados** dentro de otra clase: un archivo por repositorio.
+- **Tests de integración**: extienden `soporte/PostgresIntegracionTest`; terminan en `Test` (Surefire no ejecuta `*IT`). Sin Docker, exporta `TEST_DB_URL=jdbc:postgresql://localhost:5432/oncologia_test` (el nombre debe contener `test`), `TEST_DB_USUARIO`, `TEST_DB_PASSWORD`.
 
 ## Errores y respuestas
 
