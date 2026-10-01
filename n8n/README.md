@@ -1,84 +1,76 @@
-# Flujos de n8n — Recordatorios de citas (sección 15, flujo 2)
+# n8n — Telegram: recordatorios, chatbot y alertas
 
-Implementa el flujo que ataca directamente el problema central del sistema (sección 1 del prompt): **reducir el ausentismo mediante recordatorios automáticos**. Cada día, a las 8:00 a. m., el workflow busca las citas programadas dentro de las próximas 24–48 horas y envía un recordatorio por WhatsApp al paciente, dejando registro del resultado del envío en el backend.
+n8n es el **mensajero** del sistema: traslada mensajes entre Telegram y el backend. Las reglas (qué cita recordar y cuándo, qué hacer con un botón, cómo responder una consulta) viven en el backend y están cubiertas por tests; n8n no decide nada.
 
-## Archivos
-
-| Archivo | Qué hace |
-|---|---|
-| `workflows/obtener-token-servicio.json` | Sub-workflow reutilizable: hace login contra el backend con la cuenta de servicio y devuelve el `accessToken`. Pensado para que los futuros flujos (chat conversacional, agendamiento) lo reutilicen también, tal como pide la sección 15. |
-| `workflows/recordatorio-citas-whatsapp.json` | Workflow principal: cron diario → token → `GET /citas/proximas` → por cada cita, obtiene el teléfono del paciente → envía WhatsApp → registra el resultado con `POST /notificaciones/callback`. |
-| `workflows/error-workflow.json` | Captura fallos de cualquier workflow y deja los datos listos para notificar al equipo técnico (sección 15: "nunca fallar en silencio"). El canal final (email/Slack/Telegram) queda como placeholder porque depende de qué use la fundación. |
-
-Estos JSON fueron escritos a mano siguiendo el esquema de exportación de n8n; no se probaron contra una instancia en vivo en este entorno (no había Docker disponible). Al importarlos, abre cada nodo una vez para confirmar que los parámetros se vean bien antes de activar el workflow — es una verificación de 2 minutos y evita sorpresas si tu versión de n8n difiere ligeramente.
-
-## Requisitos previos
-
-1. El sistema corriendo (`docker compose up`), con al menos un login exitoso como admin.
-2. Una cuenta de WhatsApp Business en Meta for Developers, con:
-   - Un **Phone Number ID** y un **Access Token** (Meta Cloud API).
-   - Una plantilla de mensaje aprobada llamada `recordatorio_cita`, con 3 variables de cuerpo: `{{1}}` nombre del paciente, `{{2}}` fecha, `{{3}}` hora. Meta exige plantillas pre-aprobadas para mensajes que la empresa inicia (no es una limitación del sistema, es una regla de WhatsApp Business API).
-   - Alternativa: si la fundación prefiere Twilio (también contemplado en la sección 4 del prompt), reemplaza el nodo "Enviar recordatorio WhatsApp" por la llamada equivalente a la API de Twilio; el resto del flujo no cambia.
-
-## Paso 1 — Crear la cuenta de servicio
-
-Los workflows llaman a la API igual que cualquier usuario (sección 5: "n8n... consume la propia API REST del backend, autenticada con un token de servicio"). Créala desde el frontend (**Usuarios y roles**, solo visible como ADMIN) o vía API:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/usuarios \
-  -H "Authorization: Bearer <tu-token-de-admin>" \
-  -H "Content-Type: application/json" \
-  -d '{"nombres":"Servicio n8n","email":"n8n@threepartners.org","password":"<la-misma-de-ONCOLOGIA_SERVICE_PASSWORD>","rol":"RECEPCIONISTA"}'
-```
-
-El email/password deben coincidir con `ONCOLOGIA_SERVICE_EMAIL` / `ONCOLOGIA_SERVICE_PASSWORD` en el `.env` de la raíz (ya generados con un valor por defecto; cámbialos si quieres).
-
-## Paso 2 — Completar las variables de entorno
-
-En el `.env` de la raíz, completa (o confirma):
-
-```
-ONCOLOGIA_SERVICE_EMAIL=n8n@threepartners.org
-ONCOLOGIA_SERVICE_PASSWORD=...
-WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_ACCESS_TOKEN=...
-```
-
-`docker-compose.yml` ya las pasa al contenedor de n8n. Si corres n8n fuera de Docker, expórtalas en el entorno donde corra el proceso de n8n.
-
-## Paso 3 — Importar los workflows
-
-En la UI de n8n (**Workflows → Import from File**), en este orden:
-
-1. `obtener-token-servicio.json`
-2. `recordatorio-citas-whatsapp.json`
-3. `error-workflow.json`
-
-Al importar el workflow principal, abre el nodo **"Obtener token de servicio"**: si el desplegable del sub-workflow no lo resuelve automáticamente (puede pasar porque el ID interno cambia entre instancias de n8n), selecciona manualmente "Oncologia - Obtener Token de Servicio" de la lista — es un ajuste de una sola vez.
-
-## Paso 4 — Configurar el Error Workflow
-
-En el workflow **"Oncologia - Recordatorio de Citas (WhatsApp)"** → Settings (ícono de engranaje) → **Error Workflow** → selecciona "Oncologia - Error Workflow". Antes de eso, abre `error-workflow.json` y reemplaza el nodo placeholder "Conectar canal de alertas..." por el nodo real que la fundación quiera usar (Send Email, Slack, Telegram, etc.), usando los campos que ya vienen formateados (`workflow`, `nodoQueFallo`, `mensajeError`, `urlEjecucion`).
-
-## Paso 5 — Probar y activar
-
-1. Con el workflow principal abierto, click en **"Execute Workflow"** para probarlo manualmente contra una cita real (crea una cita de prueba con fecha dentro de las próximas 24-48h primero).
-2. Verifica que quedó el registro consultando directamente la tabla `notificacion` (no hay un endpoint GET de listado; el backend solo expone el `POST /notificaciones/callback` que este workflow usa para escribir el resultado).
-3. Activa el workflow (toggle **Active** arriba a la derecha). A partir de ahí corre solo, todos los días a las 8:00 a. m.
-
-## Qué falta más allá de esto
-
-Los otros dos flujos de la sección 15 (chat conversacional y agendamiento vía IA) **ya no viven en n8n**: se implementaron directamente en el backend (`ChatbotOrquestadorUseCase` + `GeminiRestClientAdapter`, ver el README raíz, sección "Chatbot con Gemini"). n8n ya no orquesta la conversación; `ChatbotWebhookController` (`POST /api/v1/chatbot/webhook/conversaciones`) queda disponible solo como bitácora si en el futuro se agrega otro canal externo (ej. WhatsApp conversacional) que necesite reportar interacciones desde fuera del propio backend.
-
-## Pendiente: workflows de correo del portal de autoservicio de pacientes
-
-El backend ya llama a dos webhooks de n8n para el flujo de registro de pacientes (sección 7), pero **los workflows en sí todavía no existen** — requieren credenciales SMTP/proveedor de correo (SendGrid, SES, Gmail API, etc.) que dependen de la fundación, igual que WhatsApp arriba. No se fabricó un workflow falso: se documenta el contrato exacto para que se puedan crear siguiendo el mismo patrón que `recordatorio-citas-whatsapp.json`.
-
-| Ruta | Cuándo se dispara | Payload (JSON) |
+| Workflow | Qué hace | Indicador |
 |---|---|---|
-| `POST /webhook/notificaciones/verificacion-email` | Al registrarse una nueva cuenta de paciente (`POST /api/v1/auth/registro`) | `{"email": "...", "nombre": "...", "urlVerificacion": "http://.../auth/verificar-email?token=..."}` |
-| `POST /webhook/notificaciones/recuperar-password` | Al solicitar recuperación de contraseña (`POST /api/v1/auth/recuperar-password`) | `{"email": "...", "nombre": "...", "urlRestablecer": "http://.../auth/restablecer-password?token=..."}` |
+| `telegram-router.json` | Recibe **todo** lo que llega al bot (un bot tiene un solo webhook) y lo deriva: vinculación (`/start <token>`), bienvenida, `/stop`, `/persona`, botones de recordatorio, valoraciones 👍/👎 y texto libre al chatbot | TNS, NCA |
+| `recordatorios-telegram.json` | Cada 5 min pide al backend los recordatorios que ya deben salir, los envía con botones **✅ Confirmo / 📅 Reprogramar / ❌ Cancelar** e informa el resultado | TNS |
+| `alertas-personal.json` | Avisa al grupo de Telegram del personal cuando el chatbot deriva una consulta (solo id y canal, sin datos del paciente) | NCA |
+| `error-workflow.json` | Avisa al grupo técnico si cualquier workflow falla | — |
 
-Ambas llamadas llevan el header `X-Webhook-Secret` con el mismo `N8N_WEBHOOK_SECRET` usado en el resto de la integración (verificar con `WebhookSecretValidator` si se agrega un endpoint que reciba el resultado del envío, siguiendo el mismo patrón que `NotificacionController`). El token dentro de la URL es de un solo uso y expira (24h para verificación, 1h para reset): el workflow solo necesita enviar el correo con el enlace, no validar nada.
+## Contrato con el backend
 
-Si el envío falla silenciosamente en el backend (`N8nNotificationAdapter.dispararWorkflow` solo loguea el error y no reintenta), considera agregar reintentos dentro del propio workflow de n8n en vez de en el backend.
+Todas las llamadas llevan el header `X-Webhook-Secret` (= `N8N_WEBHOOK_SECRET`).
+
+| n8n → backend | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /integraciones/recordatorios/pendientes?limite=25` | — | `[{recordatorioId, chatId, texto, fechaTexto, horaTexto, tipo}]` (el backend los marca EN_PROCESO; si no recibe resultado en 15 min, vuelven a la cola) |
+| `POST /integraciones/recordatorios/{id}/resultado` | `{enviado, mensajeExternoId?, error?}` | 204 (un fallo se reintenta hasta 3 veces) |
+| `POST /integraciones/telegram/vincular` | `{token, chatId}` | `{ok, mensaje}` |
+| `POST /integraciones/telegram/desvincular` | `{chatId}` | `{ok, mensaje}` |
+| `POST /integraciones/telegram/accion-cita` | `{chatId, recordatorioId, accion: CONFIRMAR\|CANCELAR\|REPROGRAMAR}` | `{ok, mensaje}` (verifica que la cita sea del paciente de ese chat) |
+| `POST /integraciones/telegram/mensaje` | `{chatId, texto}` | `{respuesta, consultaId, estadoConsulta}` |
+| `POST /integraciones/telegram/valoracion` | `{chatId, consultaId, valor: 1\|-1}` | `{ok, mensaje}` |
+| `POST /integraciones/telegram/escalar` | `{chatId}` | `{ok, mensaje}` |
+
+| backend → n8n | Cuerpo |
+|---|---|
+| `POST /webhook/consultas/escalada` | `{consultaId, canal}` |
+| `POST /webhook/notificaciones/verificacion-email` | `{email, nombre, urlVerificacion}` (pendiente: requiere SMTP) |
+| `POST /webhook/notificaciones/recuperar-password` | `{email, nombre, urlRestablecer}` (pendiente: requiere SMTP) |
+
+Los botones usan `callback_data` cortos (Telegram admite 64 bytes): `r:<recordatorioId>:<ACCION>` y `v:<consultaId>:<1|-1>`.
+
+## Puesta en marcha
+
+### 1. Crear el bot
+1. En Telegram, habla con **@BotFather** → `/newbot` → elige nombre y usuario (p. ej. `FundacionOncoBot`). Guarda el **token** que te entrega.
+2. `/setcommands` en BotFather:
+   ```
+   ayuda - Cómo usar el asistente
+   persona - Hablar con una persona del equipo
+   stop - Dejar de recibir mensajes
+   ```
+3. En el `.env` de la raíz: `TELEGRAM_BOT_USERNAME=FundacionOncoBot` (sin @). El backend lo usa para armar el enlace de vinculación; **el token no va en el `.env`**.
+
+### 2. URL pública HTTPS para n8n
+Telegram solo entrega mensajes a webhooks HTTPS.
+- **Desarrollo**: `cloudflared tunnel --url http://localhost:5678` (o `ngrok http 5678`) y copia la URL `https://...` en `N8N_WEBHOOK_URL` del `.env`.
+- **Producción**: el dominio de n8n detrás del proxy con TLS (ver `docs/PLAN_IMPLEMENTACION.md`, Fase 7).
+
+Reinicia n8n después de cambiar `N8N_WEBHOOK_URL` (`docker compose up -d n8n`).
+
+### 3. Grupos de Telegram para avisos
+1. Crea un grupo para el personal (recepción) y otro para el equipo técnico; agrega el bot a ambos.
+2. Obtén el id de cada grupo (escribe un mensaje en el grupo y abre `https://api.telegram.org/bot<TOKEN>/getUpdates`; el id del grupo es negativo, p. ej. `-1001234567890`).
+3. En el `.env`: `TELEGRAM_GRUPO_PERSONAL_CHAT_ID` y `TELEGRAM_GRUPO_TECNICO_CHAT_ID`.
+
+### 4. Credencial e importación en n8n
+1. Abre n8n (`http://localhost:5678`), crea tu usuario dueño.
+2. **Credentials → New → Telegram API**, nómbrala exactamente **`Telegram Oncologia Bot`** y pega el token del bot.
+3. **Workflows → Import from File**, en este orden: `error-workflow.json`, `alertas-personal.json`, `recordatorios-telegram.json`, `telegram-router.json`.
+4. En cada workflow abre los nodos de Telegram una vez y confirma que la credencial quedó seleccionada (al importar, n8n la asocia por nombre; si no, elígela en el desplegable).
+5. En **Settings** de `recordatorios-telegram` y `telegram-router`, elige **Error Workflow → Oncologia - Error Workflow**.
+6. Activa los cuatro workflows (toggle **Active**). Al activar `telegram-router`, n8n registra el webhook del bot en Telegram.
+
+> Estos JSON se generaron siguiendo el formato de exportación de n8n 2.x, pero no se probaron contra una instancia en vivo en el entorno donde se escribieron. Tras importarlos, ejecuta las pruebas de abajo antes de usarlos con pacientes.
+
+### 5. Probar
+1. **Vinculación**: en el portal, *Mi perfil → Vincular Telegram* (o en la intranet, ficha del paciente → *QR de Telegram*). Abre el enlace en el celular y pulsa **Iniciar**. El bot debe responder «¡Listo, <nombre>!».
+2. **Recordatorio**: agenda una cita para dentro de 2 h 10 min. El job del backend la programa en ≤ 15 min y n8n la envía en ≤ 5 min después del momento programado. Pulsa **✅ Confirmo**: la cita debe quedar *Confirmada* en la agenda.
+3. **Chatbot**: escribe «¿cuándo es mi cita?» y luego una pregunta cuya respuesta esté en *Preguntas frecuentes*; valora con 👍/👎.
+4. **Alerta**: escribe `/persona`; el grupo del personal debe recibir el aviso y la consulta debe aparecer en la *Bandeja de consultas*.
+
+## Contenido de los mensajes (Ley 29733)
+Los textos los arma el backend con **nombre de pila, fecha y hora**. Nunca diagnóstico, tratamiento, documento ni el texto de una consulta: un celular puede verlo otra persona. Las alertas al personal llevan solo el número de consulta.

@@ -99,8 +99,6 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       # Usadas por los workflows en n8n/workflows/ (ver n8n/README.md)
       ONCOLOGIA_API_URL: http://backend:8080/api/v1
-      ONCOLOGIA_SERVICE_EMAIL: ${ONCOLOGIA_SERVICE_EMAIL:-n8n@threepartners.org}
-      ONCOLOGIA_SERVICE_PASSWORD: ${ONCOLOGIA_SERVICE_PASSWORD:-cambia-esta-clave}
       N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-cambia-este-secreto-de-webhook}
       TELEGRAM_GRUPO_PERSONAL_CHAT_ID: ${TELEGRAM_GRUPO_PERSONAL_CHAT_ID:-}
       TELEGRAM_GRUPO_TECNICO_CHAT_ID: ${TELEGRAM_GRUPO_TECNICO_CHAT_ID:-}

@@ -121,17 +121,18 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Verificación**: 103 tests de backend (reglas del gestor con repositorio en memoria), build del frontend y prueba de humo HTTP con un stub local de la API de Gemini (sin consumir la clave real).
 
-### Fase 4 — Telegram + n8n (≈ 2 semanas) — *H2 y H3*
-- [ ] Crear el bot con @BotFather; credencial en n8n; túnel HTTPS para desarrollo.
-- [ ] Migración `V8__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, `recordatorio`).
-- [ ] Vinculación: token de un solo uso (portal y desde la ficha del paciente en recepción, con QR) → deep link `t.me/<bot>?start=<token>`.
-- [ ] `ProgramarRecordatoriosJob` (72 h / 24 h / 2 h), cancelación de recordatorios al cancelar/reprogramar.
-- [ ] Endpoints `recordatorios/pendientes` (con `SKIP LOCKED`) y `resultado`; `accion-cita` (confirmar/cancelar/reprogramar con verificación de dueño).
-- [ ] Workflows: `telegram-router`, `recordatorios-telegram`, `alertas-personal`; completar `error-workflow`. Exportarlos a `n8n/workflows/` y actualizar `n8n/README.md`.
-- [ ] Chatbot por Telegram (texto libre → backend → respuesta + 👍/👎).
-- [ ] Retirar o dejar como alternativa documentada el workflow de WhatsApp.
+### Fase 4 — Telegram + n8n (≈ 2 semanas) — *H2 y H3* — ✅ completada (código); pendiente la puesta en marcha con el bot real
+- [x] Migración `V8__telegram_recordatorios.sql` (`paciente.telegram_chat_id`, tokens de vinculación propios —muchos pacientes no tienen cuenta— y `recordatorio`).
+- [x] Vinculación con token de un solo uso (30 min): enlace `t.me/<bot>?start=<token>` + QR en el portal (*Mi perfil*) y en la ficha del paciente (recepción). Un chat ↔ un paciente.
+- [x] `ProgramarRecordatoriosUseCase` (job, cron configurable `RECORDATORIOS_CRON`): Telegram 72 h / 24 h / 2 h antes; sin Telegram, una llamada de recepción 24 h antes. Idempotente (UNIQUE cita+tipo+canal).
+- [x] Entrega a n8n con `FOR UPDATE SKIP LOCKED`, texto armado en el backend (solo nombre de pila, fecha y hora), reintentos (3) y liberación de avisos colgados; un aviso de una cita cancelada o reprogramada se cancela en vez de enviarse.
+- [x] Botones ✅ Confirmo / ❌ Cancelar (se ejecutan con verificación de que la cita es del paciente del chat) y 📅 Reprogramar (deriva una consulta al personal).
+- [x] Chatbot por Telegram: consultar, confirmar y cancelar; agendar/reprogramar se derivan a recepción; chat no vinculado → preguntas generales + invitación a vincularse. Valoración 👍/👎, `/persona` y `/stop`.
+- [x] Agenda: lista de llamadas de recordatorio y etiqueta «sin Telegram».
+- [x] Workflows `telegram-router`, `recordatorios-telegram`, `alertas-personal` y `error-workflow` (con Telegram) + `n8n/README.md` con contrato y puesta en marcha. Se retiró el workflow de WhatsApp.
+- [ ] **Pendiente del usuario**: crear el bot en @BotFather, túnel/dominio HTTPS, importar y activar los workflows en n8n y probarlos con un teléfono real (los JSON no se probaron contra una instancia viva de n8n).
 
-**Criterio de aceptación**: un paciente de prueba vincula su Telegram, recibe los recordatorios, confirma con un botón y la cita queda `CONFIRMADA`; un mensaje libre por Telegram genera una consulta contabilizada.
+**Verificación**: 115 tests de backend (incluye el ciclo completo de recordatorios contra PostgreSQL con reloj controlado), build y tests del frontend, y prueba de humo HTTP que simula a n8n (vinculación, recordatorio, botón, llamadas, chatbot, `/persona`, `/stop`). Corregido además un bug previo: el listado de citas y de tratamientos fallaba en PostgreSQL con algunos filtros nulos.
 
 ### Fase 5 — Frontend profesional: portal e intranet (≈ 2 semanas)
 - [ ] Separar el workspace en `projects/portal`, `projects/intranet`, `projects/shared` sin cambiar comportamiento.
