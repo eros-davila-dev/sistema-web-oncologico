@@ -154,15 +154,22 @@ Endpoints (`/api/v1/estudio`, roles `ADMIN`, `INVESTIGADOR`):
 | POST | `/importaciones/citas` | Importar hoja de cálculo histórica (CSV/XLSX con validación por fila) |
 | GET | `/indicadores?fase=&alcance=` | TPR, TNS, NCA, NCA_auto con su n |
 | GET | `/indicadores/comparativo` | Pretest vs postest + diferencia + % de mejora |
+| GET | `/indicadores/pareado` | Tabla pareada por participante |
+| GET | `/indicadores/wilcoxon` | Wilcoxon preliminar por indicador |
 | GET | `/exportaciones/spss.xlsx` | Libro para SPSS |
-| GET | `/exportaciones/fichas.xlsx` | Las 3 fichas del Anexo 2 llenas, por fase |
+| GET | `/exportaciones/fichas.xlsx?fase=&alcance=` | Las 3 fichas del Anexo 2 llenas, por fase |
 
-Libro `spss.xlsx` (Apache POI):
-- Hoja `pareado`: una fila por participante incluido → `codigo, TPR_pre, TPR_post, TNS_pre, TNS_post, NCA_pre, NCA_post, n_registros_pre, n_registros_post, n_citas_pre, n_citas_post, n_consultas_pre, n_consultas_post`. Celdas vacías (no cero) cuando no hay datos en una fase.
-- Hojas `detalle_tpr`, `detalle_tns`, `detalle_nca`: un evento por fila, con código de participante en vez de nombre/DNI.
-- Hoja `diccionario`: definición de cada variable y la fórmula.
+Las exportaciones (implementadas en la Fase 6) son anónimas (solo `Pnn`, sin nombres, documentos ni textos libres como `resumen` u `observacion`), van con `Cache-Control: no-store` y cada descarga se audita (`ESTUDIO_EXPORTACION_SPSS` / `_FICHAS`).
 
-Vista opcional en el dashboard: Wilcoxon de rangos con signo con `commons-math3` (`WilcoxonSignedRankTest`) como **vista previa**; el análisis oficial sigue siendo SPSS. Mostrar siempre el n efectivo.
+Libro `spss.xlsx` (`GeneradorExportacionSpss`, Apache POI), en este orden:
+- `pareado`: una fila por participante incluido → `codigo, tpr_pre, tpr_post, tns_pre, tns_post, nca_pre, nca_post` (nombres válidos en SPSS). Celda **vacía** (perdido del sistema), nunca 0, cuando no hay datos en una fase. Es la hoja que se abre en SPSS.
+- `detalle`: formato largo participante × fase con los conteos detrás de cada porcentaje (`registros`, `inasistencias`, `citas_cumplidas`, `consultas_cerradas`, `consultas_resueltas_bot`…).
+- `resumen`: comparativo de la muestra + Wilcoxon preliminar por indicador, con notas de convención.
+- `diccionario`: etiqueta, tipo, medida y definición de cada variable. `metadatos`: periodos, filtros de TPR, fecha de generación.
+
+Libro `fichas.xlsx` (`GeneradorExportacionFichas`): hojas `tiempos`, `asistencias`, `consultas` fila por fila y un `resumen` que pone el valor del sistema junto al mismo indicador **recalculado con fórmulas de Excel** sobre las filas. Las filas salen de `RegistrosEstudioRepositoryPort`, que implementa el mismo `IndicadoresEstudioJdbcAdapter` reutilizando los fragmentos `ORIGEN_TPR/TNS/NCA` de los conteos: si cambias qué cuenta para un indicador, cámbialo ahí y ambos se mantienen alineados (lo cubre un test de integración).
+
+Wilcoxon preliminar: `domain/estudio/PruebaWilcoxon` (Java puro) reproduce las convenciones de SPSS — diferencia post − pre, descarta diferencias cero, rangos promedio, corrección de la varianza por empates, Z con el menor total de rangos y sin corrección por continuidad, p asintótica bilateral y p exacta condicional para n ≤ 50. Validado contra scipy en `PruebaWilcoxonTest`. Cada indicador usa solo los pares completos (`AnalisisPareado`). Es una **vista previa**: el análisis oficial (Shapiro-Wilk + Wilcoxon) se hace en SPSS. La intranet muestra siempre el n efectivo y advierte que con n < 10 la p asintótica es poco fiable.
 
 ## 8. Casos borde y tests obligatorios
 

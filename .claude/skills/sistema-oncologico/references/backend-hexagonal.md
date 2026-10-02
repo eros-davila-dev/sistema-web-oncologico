@@ -72,6 +72,8 @@ Los endpoints que invoca n8n se autentican con `X-Webhook-Secret` (ya existe `We
 - **Agregaciones de indicadores**: SQL nativo con `NamedParameterJdbcTemplate` (`IndicadoresEstudioJdbcAdapter`), pasando instantes como `OffsetDateTime` en UTC.
 - **JSON**: la aplicación omite nulos (`default-property-inclusion: non_null`); los DTO donde `null` significa algo ("sin datos") llevan `@JsonInclude(ALWAYS)`.
 - **Spring Data no detecta repositorios anidados** dentro de otra clase: un archivo por repositorio.
+- **Errores 4xx de Spring MVC**: `GlobalExceptionHandler` tiene un comodín `Exception`; los 4xx propios de Spring (parámetro faltante, enum inválido, JSON roto, 405, 404, 413, 415) se responden con su código y `SOLICITUD_INVALIDA`, y solo un error real da 500 (y se registra con traza). Si agregas un manejador, no rompas eso (`GlobalExceptionHandlerTest`).
+- **Descargas de archivos**: el controlador devuelve `ResponseEntity<byte[]>` con `ContentDisposition.attachment()` y `CacheControl.noStore()`; el generador POI vive en `infrastructure/in/rest/archivo/` y recibe un record del caso de uso (ver `HojaExcel` para nulos, números y fechas).
 - **Tests de integración**: extienden `soporte/PostgresIntegracionTest`; terminan en `Test` (Surefire no ejecuta `*IT`). Sin Docker, exporta `TEST_DB_URL=jdbc:postgresql://localhost:5432/oncologia_test` (el nombre debe contener `test`), `TEST_DB_USUARIO`, `TEST_DB_PASSWORD`.
 
 ## Errores y respuestas

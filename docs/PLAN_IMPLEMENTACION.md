@@ -144,10 +144,15 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Verificación**: 115 tests de backend, 10 de frontend, build de producción de ambas apps y recorrido con Chrome headless (15 pantallas de portal e intranet, escritorio y móvil, con datos de pretest/postest cargados): 0 errores de consola. El recorrido encontró y se corrigieron dos fallos: el dashboard se rompía cuando el backend omitía `cumplimientoTratamientoPorcentaje` (ahora el DTO serializa los nulos) y «1 citas» → «1 cita». No se tomaron capturas en tema oscuro.
 
-### Fase 6 — Exportación y análisis (≈ 1 semana)
-- [ ] `GET /estudio/exportaciones/spss.xlsx` (hoja pareada por participante, detalle por indicador, diccionario de variables).
-- [ ] `GET /estudio/exportaciones/fichas.xlsx` (las tres fichas del Anexo 2 llenas por fase).
-- [ ] Vista comparativa con Wilcoxon preliminar (`commons-math3`), indicando que el análisis oficial es en SPSS.
+### Fase 6 — Exportación y análisis (≈ 1 semana) — ✅ completada
+- [x] `GET /estudio/exportaciones/spss.xlsx`: hojas `pareado` (una fila por participante, celdas vacías = sin datos), `detalle` (participante × fase con los conteos), `resumen` (comparativo + Wilcoxon), `diccionario` y `metadatos`. Anónimo, sin caché y auditado.
+- [x] `GET /estudio/exportaciones/fichas.xlsx?fase=`: las tres fichas del Anexo 2 fila por fila, con una hoja que recalcula cada indicador con fórmulas de Excel junto al valor del sistema. Las filas comparten con los conteos las mismas condiciones SQL.
+- [x] `GET /estudio/indicadores/wilcoxon` y tarjeta en *Estudio > Resultados*. **Decisión**: la prueba se implementó en el dominio (Java puro) en vez de usar `commons-math3`, para reproducir exactamente las convenciones de SPSS (descarte de empates, corrección por empates, Z con el menor total, p exacta condicional); se validó contra scipy. La pantalla advierte que con n < 10 la p asintótica es poco fiable.
+- [x] Botones de descarga en *Estudio > Resultados* (SPSS, fichas del pretest y del postest).
+- [x] De paso: los errores 4xx de Spring MVC (parámetro faltante, enum inválido, JSON roto, método no permitido) respondían 500 sin registrar la traza; ahora devuelven su 4xx. La auditoría se lista de la más reciente a la más antigua.
+- [ ] Shapiro-Wilk queda en SPSS (no se implementa en el sistema).
+
+**Verificación**: 130 tests de backend (Wilcoxon contra scipy, cuadratura filas = conteos contra PostgreSQL, lectura de los .xlsx generados con evaluación de las fórmulas, manejo de errores) y 14 de frontend; prueba de humo HTTP con 6 participantes (pretest con fichas, postest con el flujo real) que abre los .xlsx con openpyxl y compara con la API, verifica que no aparezcan nombres ni documentos, 403 para MEDICO y la auditoría; descarga real desde Chrome headless y capturas en claro y oscuro.
 
 **Criterio de aceptación**: el libro exportado se abre en SPSS sin transformaciones manuales.
 
