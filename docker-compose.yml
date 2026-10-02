@@ -51,6 +51,20 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       REGISTRO_PACIENTES_HABILITADO: ${REGISTRO_PACIENTES_HABILITADO:-false}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      FRONTEND_INTRANET_URL: ${FRONTEND_INTRANET_URL:-http://localhost:4300}
+      # Correo: API (principal) y SMTP (respaldo); ver .env.example
+      MAIL_FLAG_QUIPU: ${MAIL_FLAG_QUIPU:-false}
+      MAIL_API_URL: ${MAIL_API_URL:-}
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+      MAIL_FLAG_SMTP: ${MAIL_FLAG_SMTP:-false}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Fundacion Oncologica Three Partners}
     ports:
       - "${BACKEND_HOST_PORT:-8080}:8080"
     healthcheck:

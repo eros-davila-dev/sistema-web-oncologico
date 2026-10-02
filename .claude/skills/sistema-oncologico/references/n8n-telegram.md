@@ -80,7 +80,7 @@ Todos con cabecera `X-Webhook-Secret` (y opcionalmente lista de IPs permitidas).
 2. **`recordatorios-telegram.json`** — Schedule cada 15 min → token/secreto → `GET /recordatorios/pendientes` → lotes → `sendMessage` con teclado inline `[✅ Confirmo] [📅 Reprogramar] [❌ Cancelar]` → `POST resultado` (rama de error incluida: nunca fallar en silencio).
 3. **`alertas-personal.json`** — Webhook llamado por el backend cuando una consulta se escala → mensaje al grupo de Telegram del personal con enlace a la bandeja (sin datos clínicos).
 4. **`error-workflow.json`** (existe) — completar el nodo placeholder con envío al grupo técnico de Telegram.
-5. **Correo** (verificación de cuenta y recuperación de contraseña) — contrato ya documentado en `n8n/README.md`; pendiente de credenciales SMTP.
+5. **Correo** (verificación, recuperación de contraseña, bienvenida): ya **no** es de n8n. Lo envía el backend (`NotificadorCorreoPort` → outbox → `EntregaExternaEnrutador` → `ServicioCorreo`: API de correo y SMTP de respaldo, `infrastructure/out/correo`).
 
 Convenciones: nombres de workflow `Oncologia - <Nombre>`; nodos con nombres descriptivos en español; credenciales referenciadas por nombre (`Telegram Oncologia Bot`), nunca embebidas; variables vía `$env`; exportar los JSON al repositorio tras cada cambio y probarlos importándolos en una instancia limpia.
 

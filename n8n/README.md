@@ -27,8 +27,8 @@ Todas las llamadas llevan el header `X-Webhook-Secret` (= `N8N_WEBHOOK_SECRET`).
 | backend → n8n | Cuerpo |
 |---|---|
 | `POST /webhook/consultas/escalada` | `{consultaId, canal}` |
-| `POST /webhook/notificaciones/verificacion-email` | `{email, nombre, urlVerificacion}` (pendiente: requiere SMTP) |
-| `POST /webhook/notificaciones/recuperar-password` | `{email, nombre, urlRestablecer}` (pendiente: requiere SMTP) |
+
+Los correos (verificacion, restablecer contrasena, bienvenida) ya no pasan por n8n: los envia el backend con la API de correo o SMTP (ver el README principal, "Correo transaccional").
 
 Los botones usan `callback_data` cortos (Telegram admite 64 bytes): `r:<recordatorioId>:<ACCION>` y `v:<consultaId>:<1|-1>`.
 

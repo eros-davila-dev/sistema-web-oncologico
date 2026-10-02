@@ -113,8 +113,16 @@ Para activarlo, consigue una clave gratuita en <https://aistudio.google.com/apik
 
 - **n8n + Telegram**: el backend decide que recordatorio enviar, a quien y cuando (72 h / 24 h / 2 h antes; llamada de recepcion si el paciente no vinculo Telegram); n8n solo entrega por Telegram y reporta el resultado. Los workflows estan en `n8n/workflows/`, listos para importar; ver `n8n/README.md` (crear el bot en @BotFather, credencial, secreto del webhook, tunel HTTPS). Los workflows de envio de correo del portal de autoservicio (verificacion de cuenta, recuperacion de contrasena) tampoco estan incluidos: requieren credenciales SMTP/proveedor de correo propias de la fundacion; el contrato exacto que el backend ya invoca esta documentado en `n8n/README.md`.
 
-### Registro de pacientes: apagado hasta tener SMTP (seccion 7)
+### Correo transaccional
 
-`REGISTRO_PACIENTES_HABILITADO` (`.env`) esta en `false` por defecto. Mientras lo este, `POST /api/v1/auth/registro` responde 503 con un mensaje claro y **no crea ninguna fila en la base de datos** — evita cuentas huerfanas en `PENDIENTE_VERIFICACION` que nunca podrian activarse sin el correo de verificacion. El chatbot tambien lo respeta: si alguien le pide registrarse, responde que el registro estara disponible proximamente en vez de mandarlo a un formulario que va a fallar.
+El backend envia tres correos: **verificacion** al registrarse en el portal, **restablecer contrasena** y **bienvenida** cuando un administrador crea un usuario (con un enlace de un solo uso, 72 h, para que la persona elija su contrasena). Los enlaces llevan al portal si la cuenta es de paciente y a la intranet si es del personal.
 
-Cuando el workflow de correo (arriba) este listo, pon `REGISTRO_PACIENTES_HABILITADO=true` en `.env` y reinicia el backend — no requiere ningun otro cambio.
+- Proveedor principal: API de correo (`MAIL_FLAG_QUIPU=true`, `MAIL_API_URL`, `MAIL_API_KEY`). Respaldo opcional: SMTP (`MAIL_FLAG_SMTP=true`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Con ambos activos se intenta la API y luego SMTP. Remitente: `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME`.
+- Los correos pasan por el outbox: se envian solo si la operacion que los origina se guardo, se reintentan si el proveedor falla, y el correo y el enlace con token no quedan guardados tras el envio. Los logs no registran destinatarios.
+- Si una bandera esta activa sin su configuracion, el backend no arranca (mejor que descubrirlo con el primer paciente sin correo).
+
+### Registro de pacientes (seccion 7)
+
+`REGISTRO_PACIENTES_HABILITADO` (`.env`) esta en `false` por defecto; con el correo configurado se pone en `true`. Mientras este en `false`, `POST /api/v1/auth/registro` responde 503 con un mensaje claro y **no crea ninguna fila en la base de datos** — evita cuentas huerfanas en `PENDIENTE_VERIFICACION` que nunca podrian activarse sin el correo de verificacion. El chatbot tambien lo respeta: si alguien le pide registrarse, responde que el registro estara disponible proximamente en vez de mandarlo a un formulario que va a fallar.
+
+Con el correo configurado (arriba), pon `REGISTRO_PACIENTES_HABILITADO=true` en `.env` y reinicia el backend — no requiere ningun otro cambio.
