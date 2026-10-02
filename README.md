@@ -117,7 +117,7 @@ Para activarlo, consigue una clave gratuita en <https://aistudio.google.com/apik
 
 El backend envia tres correos: **verificacion** al registrarse en el portal, **restablecer contrasena** y **bienvenida** cuando un administrador crea un usuario (con un enlace de un solo uso, 72 h, para que la persona elija su contrasena). Los enlaces llevan al portal si la cuenta es de paciente y a la intranet si es del personal.
 
-- Proveedor principal: API de correo (`MAIL_FLAG_QUIPU=true`, `MAIL_API_URL`, `MAIL_API_KEY`). Respaldo opcional: SMTP (`MAIL_FLAG_SMTP=true`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Con ambos activos se intenta la API y luego SMTP. Remitente: `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME`.
+- Proveedor principal: API de correo (`MAIL_FLAG_QUIPU=true`, `MAIL_API_URL`, `MAIL_API_KEY`). Respaldo opcional: SMTP (`MAIL_FLAG_SMTP=true`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Con ambos activos se intenta la API y luego SMTP. Remitente: `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME`. Las plantillas llevan la identidad de OncoCare; el logo (`frontend/public/logo-correo.png`, version optimizada del logo del login) se carga desde `MAIL_LOGO_URL`, por defecto `<portal>/logo-correo.png`: debe ser una URL publica, asi que en local no se ve en una bandeja real.
 - Los correos pasan por el outbox: se envian solo si la operacion que los origina se guardo, se reintentan si el proveedor falla, y el correo y el enlace con token no quedan guardados tras el envio. Los logs no registran destinatarios.
 - Si una bandera esta activa sin su configuracion, el backend no arranca (mejor que descubrirlo con el primer paciente sin correo).
 
