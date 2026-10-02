@@ -62,7 +62,7 @@ El plan por fases está en `docs/PLAN_IMPLEMENTACION.md`. Si el usuario pide "se
 
 - **Idioma**: dominio, clases, métodos, columnas y mensajes en **español sin tildes** en identificadores (`RegistrarAsistenciaCitaUseCase`, `fecha_registro`). Comentarios en español explicando el *porqué*, citando la sección del requerimiento cuando aplica.
 - **Backend**: un caso de uso = una clase `XxxUseCase` en `application/<modulo>/` con `@Service`, `@PreAuthorize` por rol y `@Transactional` en el método. Puertos en `domain/<modulo>/*Port`, adaptadores en `infrastructure/out/...`, controladores en `infrastructure/in/rest/` con DTO `record` + Bean Validation + mapper MapStruct. Errores de negocio con las excepciones de `domain/shared/exception`. Auditoría vía eventos de dominio publicados con `ApplicationEventPublisher`.
-- **Base de datos**: solo migraciones Flyway nuevas (la siguiente libre es `V9__...sql`); nunca editar una migración ya aplicada. `ddl-auto: validate`.
+- **Base de datos**: solo migraciones Flyway nuevas (la siguiente libre es `V10__...sql`); nunca editar una migración ya aplicada. `ddl-auto: validate`.
 - **Frontend**: componentes standalone con `inject()`, `signal`/`computed`, formularios reactivos, servicios por feature, UI reutilizable de `shared/ui` y `shared/components`. Colores siempre con tokens semánticos del tema (`bg-primary`, `text-muted-foreground`), nunca hex sueltos.
 - **Roles**: `ADMIN`, `MEDICO`, `RECEPCIONISTA`, `PACIENTE` y (nuevo) `INVESTIGADOR` para el módulo de estudio.
 

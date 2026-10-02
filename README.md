@@ -33,6 +33,15 @@ Usuario administrador inicial (creado por la migracion `V2__seed_usuario_admin.s
 
 **Cambiar esta contraseña inmediatamente en un entorno real.**
 
+## Produccion
+
+```bash
+cp .env.prod.example .env   # completar dominios y secretos
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy publica el portal, la intranet (restringida por IP) y n8n con TLS automatico; nada mas queda expuesto. Respaldos diarios, restauracion, monitoreo y actualizaciones: ver `docs/OPERACION.md`. En produccion el backend no arranca si el administrador conserva la contrasena de la semilla (definir `ADMIN_PASSWORD_INICIAL`).
+
 ## Desarrollo local sin Docker
 
 ### Backend

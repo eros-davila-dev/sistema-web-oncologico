@@ -156,12 +156,18 @@ Duraciones estimadas para una persona a tiempo parcial; ajústalas a tu cronogra
 
 **Criterio de aceptación**: el libro exportado se abre en SPSS sin transformaciones manuales.
 
-### Fase 7 — Producción y robustez (≈ 1 semana)
-- [ ] `docker-compose.prod.yml`, Nginx/Caddy con TLS y cabeceras, dominios separados.
-- [ ] Rate limit en Redis, caché de catálogos e indicadores, outbox hacia n8n.
-- [ ] Prometheus/métricas de negocio, logs JSON sin datos personales.
-- [ ] Backups diarios de PostgreSQL + restauración probada.
-- [ ] Cambiar credenciales semilla; activar `REGISTRO_PACIENTES_HABILITADO` cuando el workflow de correo exista.
+### Fase 7 — Producción y robustez (≈ 1 semana) — ✅ completada (código); pendiente el despliegue en el servidor real
+- [x] `docker-compose.prod.yml` (override) con Caddy: TLS automático, HSTS, tres dominios (portal, intranet restringida por IP, n8n con webhooks públicos y editor restringido). Ningún otro puerto publicado; secretos obligatorios; límites de memoria y rotación de logs. El dominio HTTPS de n8n resuelve el webhook que Telegram exige (pendiente de la Fase 4).
+- [x] **Outbox** hacia n8n (`V9__outbox_eventos_salientes.sql`): los avisos se guardan en la transacción del caso de uso y un job los entrega con reintentos 1-2-4-8-16 min. Antes se enviaban por HTTP dentro de la transacción y se perdían si n8n estaba caído (afectaba el aviso de consultas escaladas, NCA).
+- [x] Rate limit en Redis (script atómico, compartido entre réplicas) con respaldo en memoria si Redis cae; limpieza de ventanas vencidas en memoria; `Retry-After`.
+- [x] Caché de catálogos (preguntas frecuentes; invalidación después del commit). **Decisión**: los indicadores no se cachean (volumen chico; el investigador necesita el dato fresco).
+- [x] Prometheus (`/actuator/prometheus` en puerto interno) con métricas de negocio ligadas a los indicadores y alertas; logs JSON (ECS) en el perfil `prod`; Swagger deshabilitado en prod.
+- [x] Respaldo diario de las bases `oncologia` y `n8n` con retención, scripts de restauración y de simulacro, y guía `docs/OPERACION.md`.
+- [x] Contraseña semilla: en `prod` el backend no arranca si el admin la conserva; `ADMIN_PASSWORD_INICIAL` la reemplaza una vez (auditado).
+- [ ] `REGISTRO_PACIENTES_HABILITADO`: sigue en `false` hasta que exista el workflow de correo de verificación (tarea de la fundación).
+- [ ] **Pendiente del usuario**: servidor, DNS, `.env` de producción, primer despliegue y copia de los respaldos fuera del servidor (ver `docs/OPERACION.md`).
+
+**Verificación**: 147 tests de backend (outbox contra PostgreSQL: rollback, reclamo sin duplicados, reintentos con reloj controlado, instancia caída y purga; caché con rollback; rate limit con Redis simulado; contraseña semilla) y 14 de frontend. Backend real con el perfil `prod`: se niega a arrancar con la contraseña semilla; con `ADMIN_PASSWORD_INICIAL`, la reemplaza; actuator solo en el puerto interno; Swagger 404; un aviso escalado con n8n caído se reintenta y llega cuando n8n vuelve; el 11.º login en un minuto da 429; el 100 % de los logs es JSON y sin contraseñas. `docker compose config` valida el compose de producción (y falla con mensaje claro si falta un secreto). Restauración probada con `pg_dump --clean --if-exists --no-owner` sobre una base vacía y sobre una existente: los conteos coinciden y los triggers de solo inserción se conservan. **No probado**: el despliegue con Docker (el daemon no estaba disponible), Caddy/TLS contra dominios reales, ni Redis real (cubierto con dobles).
 
 ### Fase 8 — Piloto (postest) y cierre (según cronograma de la tesis)
 - [ ] Capacitación al personal y a los pacientes (vinculación de Telegram) — se apoya en TAM (utilidad y facilidad de uso percibidas).

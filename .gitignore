@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
+
+### Respaldos de la base (datos de pacientes: nunca al repositorio) ###
+respaldos/
 
 ### Sistema operativo / IDE ###
 .DS_Store

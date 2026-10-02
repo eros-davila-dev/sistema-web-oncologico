@@ -68,7 +68,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - name: Tests
-        run: npx ng test --watch=false
+        run: npx ng test intranet --watch=false
       - name: Build de produccion
         run: npm run build
 
